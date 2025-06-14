@@ -1,0 +1,9 @@
+# Python
+__pycache__/
+*.py[cod]
+
+# Data files
+data/*.csv
+
+# Misc
+.env

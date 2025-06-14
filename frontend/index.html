@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Crypto Dashboard</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 2em; }
+        table { border-collapse: collapse; width: 100%; }
+        th, td { border: 1px solid #ccc; padding: 0.5em; text-align: left; }
+        th { background-color: #f0f0f0; }
+    </style>
+</head>
+<body>
+    <h1>Crypto Dashboard</h1>
+    <p>Latest price updates for BTC from multiple exchanges.</p>
+    <table id="price-table">
+        <thead>
+            <tr><th>Timestamp (UTC)</th><th>Exchange</th><th>Symbol</th><th>Price</th></tr>
+        </thead>
+        <tbody></tbody>
+    </table>
+
+    <script>
+    async function loadData() {
+        const response = await fetch('../data/prices.csv');
+        const text = await response.text();
+        const rows = text.trim().split('\n').slice(1); // remove header
+        const tbody = document.querySelector('#price-table tbody');
+        tbody.innerHTML = '';
+        rows.slice(-10).forEach(line => {
+            const [timestamp, exchange, symbol, price] = line.split(',');
+            const tr = document.createElement('tr');
+            tr.innerHTML = `<td>${timestamp}</td><td>${exchange}</td><td>${symbol}</td><td>${price}</td>`;
+            tbody.appendChild(tr);
+        });
+    }
+
+    loadData();
+    setInterval(loadData, 60000); // refresh every minute
+    </script>
+</body>
+</html>
