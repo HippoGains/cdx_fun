@@ -20,23 +20,104 @@
         <tbody></tbody>
     </table>
 
+    <hr>
+    <h2>Binance USDT Trading Pairs</h2>
+    <div id="last-check"></div>
+    <button onclick="toggleRawData()">Show/Hide Raw Data</button>
+    <pre id="raw-data" style="display:none; background:#f9f9f9; border:1px solid #ccc; padding:1em; max-height:300px; overflow:auto;"></pre>
+    <div style="display:flex;gap:2em;flex-wrap:wrap;">
+      <div style="flex:1;min-width:300px;">
+        <h3>Spot USDT Pairs</h3>
+        <table id="spot-table"><thead><tr><th>Symbol</th></tr></thead><tbody></tbody></table>
+      </div>
+      <div style="flex:1;min-width:300px;">
+        <h3>Futures USDT Pairs</h3>
+        <table id="futures-table"><thead><tr><th>Symbol</th></tr></thead><tbody></tbody></table>
+      </div>
+    </div>
+    <h3>Activity Log</h3>
+    <ul id="activity-log" style="background:#f6f6f6; border:1px solid #ccc; padding:1em; max-height:120px; overflow:auto;"></ul>
+
     <script>
+    // --- BTC price table (legacy) ---
     async function loadData() {
-        const response = await fetch('../data/prices.csv');
-        const text = await response.text();
-        const rows = text.trim().split('\n').slice(1); // remove header
-        const tbody = document.querySelector('#price-table tbody');
-        tbody.innerHTML = '';
-        rows.slice(-10).forEach(line => {
-            const [timestamp, exchange, symbol, price] = line.split(',');
-            const tr = document.createElement('tr');
-            tr.innerHTML = `<td>${timestamp}</td><td>${exchange}</td><td>${symbol}</td><td>${price}</td>`;
-            tbody.appendChild(tr);
-        });
+        try {
+            const response = await fetch('../data/prices.csv');
+            const text = await response.text();
+            const rows = text.trim().split('\n').slice(1); // remove header
+            const tbody = document.querySelector('#price-table tbody');
+            tbody.innerHTML = '';
+            rows.slice(-10).forEach(line => {
+                const [timestamp, exchange, symbol, price] = line.split(',');
+                const tr = document.createElement('tr');
+                tr.innerHTML = `<td>${timestamp}</td><td>${exchange}</td><td>${symbol}</td><td>${price}</td>`;
+                tbody.appendChild(tr);
+            });
+        } catch(e) {
+            addLog('Error loading prices.csv: ' + e);
+        }
     }
 
+    // --- Binance pairs tables ---
+    let lastCheck = '';
+    let lastRaw = '';
+    let logBuffer = [];
+    function addLog(msg) {
+        const log = document.getElementById('activity-log');
+        const ts = new Date().toLocaleTimeString();
+        logBuffer.unshift(`[${ts}] ${msg}`);
+        if (logBuffer.length > 10) logBuffer = logBuffer.slice(0,10);
+        log.innerHTML = logBuffer.map(x=>`<li>${x}</li>`).join('');
+    }
+
+    async function loadBinancePairs() {
+        try {
+            const resp = await fetch('../data/binance_pairs.json', {cache:'no-store'});
+            if (!resp.ok) throw new Error('File not found or server error');
+            const data = await resp.json();
+            // Only update if new data
+            if (data.last_check !== lastCheck) {
+                lastCheck = data.last_check;
+                document.getElementById('last-check').textContent = 'Last Check: ' + lastCheck;
+                // Spot
+                const spotBody = document.querySelector('#spot-table tbody');
+                spotBody.innerHTML = '';
+                data.spot.forEach(sym => {
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `<td>${sym}</td>`;
+                    spotBody.appendChild(tr);
+                });
+                // Futures
+                const futBody = document.querySelector('#futures-table tbody');
+                futBody.innerHTML = '';
+                data.futures.forEach(sym => {
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `<td>${sym}</td>`;
+                    futBody.appendChild(tr);
+                });
+                // Raw data
+                lastRaw = JSON.stringify(data, null, 2);
+                document.getElementById('raw-data').textContent = lastRaw;
+                addLog('Binance pairs updated.');
+            } else {
+                addLog('No new Binance data (last_check unchanged).');
+            }
+        } catch(e) {
+            addLog('Error loading binance_pairs.json: ' + e);
+        }
+    }
+
+    function toggleRawData() {
+        const pre = document.getElementById('raw-data');
+        pre.style.display = pre.style.display === 'none' ? 'block' : 'none';
+    }
+
+    // Initial load
     loadData();
-    setInterval(loadData, 60000); // refresh every minute
+    loadBinancePairs();
+    // Periodic refresh
+    setInterval(loadData, 60000); // refresh prices table every minute
+    setInterval(loadBinancePairs, 30000); // refresh binance pairs every 30s
     </script>
 </body>
 </html>
